@@ -121,7 +121,12 @@
           showMessage("QRコードをカメラの中央に合わせてください。", 'success');
         })
         .catch(function(error) {
+          // エラーが発生した場合、カメラにアクセスできなかったことをユーザーに知らせ、
+          // カメラへのアクセスを許可するように促します。
+          // また、スキャンボタンを無効化し、エラーメッセージをコンソールにも出力します。
           showMessage("カメラへのアクセスが拒否されました。ブラウザのポップアップで「許可」を選択してください。", 'error');
+          scanQrButton.disabled = true;
+          scanQrButton.style.opacity = '0.5';
           console.error("カメラアクセスエラー:", error);
         });
     }
@@ -178,22 +183,14 @@
       if (isLoading) {
         button.disabled = true;
         button.style.opacity = '0.7';
-        if (button.id === 'scan-qr-btn') {
-          button.textContent = 'スキャン中...';
-        } else if (button.id === 'send-data-btn') {
-          button.textContent = '送信中...';
-        }
+        button.textContent = 'スキャン中...';
       } else {
         button.disabled = false;
         button.style.opacity = '1';
-        if (button.id === 'scan-qr-btn') {
-          button.textContent = 'スキャン開始';
-        } else if (button.id === 'send-data-btn') {
-          button.textContent = 'スプレッドシートへ送信';
-        }
+        button.textContent = 'スキャン開始';
       }
     }
-
+    
     /**
      * QRコードをスキャンし、結果を処理する関数
      */
@@ -296,7 +293,10 @@
     scanQrButton.addEventListener('click', () => {
       // 既にスキャン中であれば、一度停止してから再開
       if (isScanning) {
+        // 既存のスキャンを停止
         stopCamera();
+        // プレビューを再開し、スキャン処理を再度開始
+        startCameraPreview();
       }
       
       // 以前の読み取り結果を非表示にする
