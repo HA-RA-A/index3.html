@@ -99,6 +99,7 @@
     let isScanning = false;
     let qrDataToSend = null;
     let videoStream = null;
+    let lastKnownQrData = null; // 最後に読み取ったQRコードのデータを保存する変数
 
     // ページロード時にカメラを起動
     window.addEventListener('load', () => {
@@ -205,19 +206,21 @@
         });
         
         // 読み取れた時だけ結果を表示し、スキャン停止時も結果をリセットする
-        if (code) {
-          // QRコードが見つかった場合の処理
+        if (code && code.data !== lastKnownQrData) {
+          // 新しいQRコードが見つかった場合の処理
           qrDataToSend = code.data;
+          lastKnownQrData = code.data;
           resultBox.classList.remove('hidden');
           sendButton.classList.remove('hidden');
           resultText.textContent = `QRコードを読み取りました: ${code.data}`;
           showMessage("QRコードを読み取りました。次のスキャンに進めます。", 'success');
-        } else {
+        } else if (!code) {
           // 読み取れていない場合は結果を非表示にする
           resultBox.classList.add('hidden');
           sendButton.classList.add('hidden');
           qrDataToSend = null;
           resultText.textContent = '';
+          lastKnownQrData = null;
         }
       }
       requestAnimationFrame(tick);
@@ -299,6 +302,7 @@
         resultText.textContent = '';
         sendButton.classList.add('hidden');
         qrDataToSend = null;
+        lastKnownQrData = null; // スキャン開始時にリセット
         scanQrButton.textContent = 'スキャン停止';
         showMessage("QRコードをカメラにかざしてください。", 'success');
         requestAnimationFrame(tick);
@@ -310,6 +314,7 @@
         resultText.textContent = '';
         sendButton.classList.add('hidden');
         qrDataToSend = null;
+        lastKnownQrData = null; // スキャン停止時にリセット
         showMessage("スキャンを停止しました。読み取り結果をリセットしました。", 'success');
       }
     });
