@@ -221,7 +221,7 @@
     /**
      * QRコードのデータを解析し、スプレッドシートに送信します。
      * QRコードのデータは、JSON形式を想定しています。
-     * 例: {"locationName": "場所A", "latitude": 35.681236, "longitude": 139.767125}
+     * 例: {"ボタン名": "原", "緯度": 11111, "経度": 11111}
      * @param {string} qrData - 読み取ったQRコードの文字列
      */
     async function sendData(qrData) {
@@ -234,16 +234,16 @@
 
       try {
         const parsedData = JSON.parse(qrData);
-        if (!parsedData.locationName || !parsedData.latitude || !parsedData.longitude) {
+        if (!parsedData.ボタン名 || !parsedData.緯度 || !parsedData.経度) {
           throw new Error("QRコードのデータ形式が不正です。");
         }
         
         // タイムスタンプを追加
         const dataToSend = [{
-          locationName: parsedData.locationName,
-          latitude: parsedData.latitude,
-          longitude: parsedData.longitude,
-          timestamp: new Date().toISOString()
+          ボタン名: parsedData.ボタン名,
+          緯度: parsedData.緯度,
+          経度: parsedData.経度,
+          時間: new Date().toISOString()
         }];
 
         // Fetch APIを使用してデータをPOSTリクエストで送信
