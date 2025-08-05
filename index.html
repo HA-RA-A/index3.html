@@ -69,17 +69,27 @@
       <p id="result-text" class="text-gray-700"></p>
     </div>
     
-    <!-- QRコード読み取り開始ボタン -->
-    <button 
-      id="scan-qr-btn" 
-      class="w-full bg-blue-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-blue-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300">
-      スキャン開始
-    </button>
-    
+    <!-- QRコード読み取り開始・クリアボタンのコンテナ -->
+    <div class="flex space-x-4">
+      <!-- QRコード読み取り開始ボタン -->
+      <button 
+        id="scan-qr-btn" 
+        class="flex-1 bg-blue-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-blue-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300">
+        スキャン開始
+      </button>
+
+      <!-- 読み取り結果クリアボタン -->
+      <button 
+        id="clear-result-btn" 
+        class="flex-1 bg-gray-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-gray-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-gray-300 hidden">
+        結果をクリア
+      </button>
+    </div>
+
     <!-- スプレッドシートへ送信ボタン -->
     <button 
       id="send-data-btn" 
-      class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-green-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-green-300 hidden">
+      class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-green-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-green-300 mt-4 hidden">
       スプレッドシートへ送信
     </button>
   </div>
@@ -94,12 +104,12 @@
     const resultBox = document.getElementById('result-box');
     const resultText = document.getElementById('result-text');
     const scanQrButton = document.getElementById('scan-qr-btn');
+    const clearResultButton = document.getElementById('clear-result-btn');
     const sendButton = document.getElementById('send-data-btn');
 
     let isScanning = false;
     let qrDataToSend = null;
     let videoStream = null;
-    let scanTimeoutId = null; // スキャンタイムアウト用のIDを追加
 
     // ページロード時にカメラを起動
     window.addEventListener('load', () => {
@@ -118,7 +128,7 @@
           video.srcObject = videoStream;
           video.setAttribute("playsinline", true);
           video.play();
-          showMessage("QRコードをカメラの中央に合わせてください。", 'success');
+          showMessage("カメラの準備ができました。", 'success');
         })
         .catch(function(error) {
           // エラーが発生した場合、カメラにアクセスできなかったことをユーザーに知らせ、
@@ -135,17 +145,12 @@
      * カメラを停止する
      */
     function stopCamera() {
-        if (videoStream) {
-            videoStream.getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-        }
-        isScanning = false;
-        setButtonLoading(scanQrButton, false);
-        // タイムアウトをクリア
-        if (scanTimeoutId) {
-          clearTimeout(scanTimeoutId);
-          scanTimeoutId = null;
-        }
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+      isScanning = false;
+      setButtonLoading(scanQrButton, false);
     }
 
     /**
@@ -195,12 +200,10 @@
      * QRコードをスキャンし、結果を処理する関数
      */
     function tick() {
-      // スキャン中でなければ何もしない
       if (!isScanning) {
         return;
       }
 
-      // カメラの映像データが利用可能かチェック
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         const canvasElement = document.createElement('canvas');
         const canvas = canvasElement.getContext('2d');
@@ -212,25 +215,17 @@
           inversionAttempts: "dontInvert",
         });
         
-        // QRコードが検出されたかチェック
         if (code) {
           // QRコードが見つかった場合の処理
-          // ここで初めてスキャンを停止し、結果を表示
-          stopCamera();
+          // 連続読み取りを可能にするため、ここではカメラを停止せず、スキャンフラグもtrueのままにします
+          qrDataToSend = code.data;
           resultBox.classList.remove('hidden');
           sendButton.classList.remove('hidden');
+          clearResultButton.classList.remove('hidden');
           resultText.textContent = `QRコードを読み取りました: ${code.data}`;
-          qrDataToSend = code.data;
-          showMessage("QRコードを読み取りました。スプレッドシートへ送信してください。", 'success');
-          // タイムアウトをクリア
-          if (scanTimeoutId) {
-            clearTimeout(scanTimeoutId);
-            scanTimeoutId = null;
-          }
-          return; // 読み取り成功したので、tickの再帰呼び出しを停止
+          showMessage("QRコードを読み取りました。次のスキャンに進めます。", 'success');
         }
       }
-      // QRコードが見つからない場合、次のフレームで再度スキャンを試みる
       requestAnimationFrame(tick);
     }
 
@@ -294,34 +289,48 @@
     sendButton.addEventListener('click', () => {
       sendData(qrDataToSend);
     });
-    
-    // スキャン開始ボタンにイベントリスナーを追加
-    scanQrButton.addEventListener('click', () => {
-      // 既にスキャン中であれば、一度停止してから再開
-      if (isScanning) {
-        // 既存のスキャンを停止
-        stopCamera();
-        // プレビューを再開し、スキャン処理を再度開始
-        startCameraPreview();
-      }
-      
-      // 以前の読み取り結果を非表示にする
+
+    // 読み取り結果クリアボタンにイベントリスナーを追加
+    clearResultButton.addEventListener('click', () => {
       resultBox.classList.add('hidden');
       resultText.textContent = '';
       sendButton.classList.add('hidden');
+      clearResultButton.classList.add('hidden');
       qrDataToSend = null;
+      showMessage("結果をクリアしました。新しいQRコードをスキャンしてください。", 'success');
+      // カメラが停止している場合は再開
+      if (!videoStream) {
+        startCameraPreview();
+      }
       isScanning = true;
       requestAnimationFrame(tick);
-      setButtonLoading(scanQrButton, true);
-      showMessage("QRコードをカメラにかざしてください。QRコードを読み取り次第、スキャンを停止します。", 'success');
-      
-      // 15秒後にタイムアウトするよう設定
-      scanTimeoutId = setTimeout(() => {
-        if (isScanning) {
-          stopCamera();
-          showMessage("QRコードが見つかりませんでした。再度「スキャン開始」ボタンを押してお試しください。", 'error');
+    });
+    
+    // スキャン開始ボタンにイベントリスナーを追加
+    scanQrButton.addEventListener('click', () => {
+      if (isScanning) {
+        // スキャン停止
+        isScanning = false;
+        setButtonLoading(scanQrButton, false);
+        scanQrButton.textContent = 'スキャン開始';
+        showMessage("スキャンを停止しました。", 'success');
+      } else {
+        // スキャン開始
+        if (!videoStream) {
+          startCameraPreview();
         }
-      }, 15000);
+        // 以前の読み取り結果を非表示にする
+        resultBox.classList.add('hidden');
+        resultText.textContent = '';
+        sendButton.classList.add('hidden');
+        clearResultButton.classList.add('hidden');
+        qrDataToSend = null;
+
+        isScanning = true;
+        requestAnimationFrame(tick);
+        scanQrButton.textContent = 'スキャン停止';
+        showMessage("QRコードをカメラにかざしてください。", 'success');
+      }
     });
   </script>
 </body>
