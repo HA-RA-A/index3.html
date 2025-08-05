@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QRコードで位置情報送信</title>
+  <!-- Tailwind CSSを読み込み、モダンなデザインを適用します -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google FontsからInterフォントを読み込みます -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- QRコードを読み取るためのライブラリjsQRを読み込みます -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.0.0/dist/jsQR.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* カスタムメッセージボックスのフェードアウトアニメーション */
+    .fade-out {
+      animation: fadeOut 2s forwards;
+    }
+    @keyframes fadeOut {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-20px); display: none; }
+    }
+    /* ボタンのコンテナをグリッドで配置し、自動折り返しを有効にする */
+    #location-buttons-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 1rem;
+    }
+    .video-container {
+      position: relative;
+      width: 100%;
+      height: 0;
+      padding-bottom: 75%; /* 4:3のアスペクト比 */
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+    .video-container video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+  <!-- メインコンテナ -->
+  <div class="bg-white p-8 rounded-xl shadow-2xl max-w-2xl w-full text-center">
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">QRコードで位置情報送信</h2>
+    <p class="text-gray-600 mb-8">カメラでQRコードをスキャンしてください。</p>
+
+    <!-- メッセージボックス (alert()の代替) -->
+    <div id="message-box" class="fixed top-8 left-1/2 -translate-x-1/2 p-4 rounded-lg text-sm transition-all duration-300 opacity-0 transform -translate-y-4 z-50 shadow-lg"></div>
+    
+    <!-- QRコード読み取りエリア -->
+    <div class="video-container mb-8">
+      <video id="video" playsinline></video>
+    </div>
+
+    <!-- 読み取り結果表示エリア -->
+    <div id="result-box" class="p-4 bg-gray-200 rounded-lg hidden text-left mb-8">
+      <h3 class="font-bold text-lg mb-2">読み取り結果:</h3>
+      <p id="result-text" class="text-gray-700"></p>
+    </div>
+    
+    <!-- QRコード読み取り開始ボタン -->
+    <button 
+      id="scan-qr-btn" 
+      class="w-full bg-blue-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-blue-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300">
+      スキャン開始
+    </button>
+  </div>
+
+  <script>
+    // Google Apps ScriptのURL
+    const SPREADSHEET_URL = 'https://script.google.com/macros/s/AKfycbybW5MugA8GGWpNgYiz8JpiWjzXX9uGFmsAbhePCdnOMOeEK-T7cqgBPj5XfH2MdHGV/exec';
+    
+    // UI要素の参照を取得
+    const video = document.getElementById('video');
+    const messageBox = document.getElementById('message-box');
+    const resultBox = document.getElementById('result-box');
+    const resultText = document.getElementById('result-text');
+    const scanQrButton = document.getElementById('scan-qr-btn');
+
+    let isScanning = false;
+
+    /**
+     * カスタムメッセージボックスにメッセージを表示します。
+     * alert()の代替として使用します。
+     * @param {string} message - 表示するメッセージ
+     * @param {string} type - 'success' または 'error'
+     */
+    function showMessage(message, type) {
+      // 既存のフェードアウトアニメーションをリセット
+      messageBox.classList.remove('fade-out', 'bg-red-500', 'bg-green-500');
+      
+      messageBox.textContent = message;
+      messageBox.style.opacity = '1';
+      messageBox.style.transform = 'translateY(0) translateX(-50%)';
+      
+      if (type === 'success') {
+        messageBox.classList.add('bg-green-500', 'text-white');
+      } else if (type === 'error') {
+        messageBox.classList.add('bg-red-500', 'text-white');
+      }
+
+      // 3秒後にメッセージを非表示にする
+      setTimeout(() => {
+        messageBox.classList.add('fade-out');
+      }, 3000);
+    }
+    
+    /**
+     * ボタンの状態を管理します
+     * @param {HTMLElement} button - 状態を変更するボタン
+     * @param {boolean} isLoading - ロード中かどうか
+     */
+    function setButtonLoading(button, isLoading) {
+      if (isLoading) {
+        button.disabled = true;
+        button.style.opacity = '0.7';
+        button.textContent = 'スキャン中...';
+      } else {
+        button.disabled = false;
+        button.style.opacity = '1';
+        button.textContent = 'スキャン開始';
+      }
+    }
+
+    /**
+     * QRコードをスキャンし、結果を処理する関数
+     */
+    function tick() {
+      if (!isScanning) return;
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        const canvasElement = document.createElement('canvas');
+        const canvas = canvasElement.getContext('2d');
+        canvasElement.width = video.videoWidth;
+        canvasElement.height = video.videoHeight;
+        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+        
+        if (code) {
+          // QRコードが見つかった場合の処理
+          isScanning = false;
+          video.pause();
+          resultBox.classList.remove('hidden');
+          resultText.textContent = `QRコードを読み取りました: ${code.data}`;
+          processQrData(code.data);
+          return;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    /**
+     * QRコードのデータを解析し、スプレッドシートに送信します。
+     * QRコードのデータは、JSON形式を想定しています。
+     * 例: {"locationName": "場所A", "latitude": 35.681236, "longitude": 139.767125}
+     * @param {string} qrData - 読み取ったQRコードの文字列
+     */
+    async function processQrData(qrData) {
+      try {
+        const parsedData = JSON.parse(qrData);
+        if (!parsedData.locationName || !parsedData.latitude || !parsedData.longitude) {
+          throw new Error("QRコードのデータ形式が不正です。");
+        }
+        
+        // タイムスタンプを追加
+        const dataToSend = [{
+          locationName: parsedData.locationName,
+          latitude: parsedData.latitude,
+          longitude: parsedData.longitude,
+          timestamp: new Date().toISOString()
+        }];
+
+        // Fetch APIを使用してデータをPOSTリクエストで送信
+        const response = await fetch(SPREADSHEET_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(dataToSend)
+        });
+        
+        showMessage("データをスプレッドシートへ送信しました！", 'success');
+        
+      } catch (error) {
+        showMessage("データの送信中にエラーが発生しました。", 'error');
+        console.error("送信エラー:", error);
+      } finally {
+        setButtonLoading(scanQrButton, false);
+      }
+    }
+    
+    // QRコードスキャン開始ボタンにイベントリスナーを追加
+    scanQrButton.addEventListener('click', () => {
+      // 以前の読み取り結果を非表示にする
+      resultBox.classList.add('hidden');
+      resultText.textContent = '';
+      setButtonLoading(scanQrButton, true);
+
+      // カメラを起動する
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(function(stream) {
+          video.srcObject = stream;
+          video.setAttribute("playsinline", true);
+          video.play();
+          isScanning = true;
+          requestAnimationFrame(tick);
+        })
+        .catch(function(error) {
+          setButtonLoading(scanQrButton, false);
+          showMessage("カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。", 'error');
+          console.error("カメラアクセスエラー:", error);
+        });
+    });
+  </script>
+</body>
+</html>
