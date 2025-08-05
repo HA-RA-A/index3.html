@@ -69,23 +69,13 @@
       <p id="result-text" class="text-gray-700"></p>
     </div>
     
-    <!-- QRコード読み取り開始・クリアボタンのコンテナ -->
-    <div class="flex space-x-4">
-      <!-- QRコード読み取り開始ボタン -->
-      <button 
-        id="scan-qr-btn" 
-        class="flex-1 bg-blue-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-blue-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300">
-        スキャン開始
-      </button>
-
-      <!-- 読み取り結果クリアボタン -->
-      <button 
-        id="clear-result-btn" 
-        class="flex-1 bg-gray-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-gray-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-gray-300 hidden">
-        結果をクリア
-      </button>
-    </div>
-
+    <!-- QRコード読み取り開始・停止ボタン -->
+    <button 
+      id="scan-qr-btn" 
+      class="w-full bg-blue-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-blue-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300">
+      スキャン開始
+    </button>
+    
     <!-- スプレッドシートへ送信ボタン -->
     <button 
       id="send-data-btn" 
@@ -104,7 +94,6 @@
     const resultBox = document.getElementById('result-box');
     const resultText = document.getElementById('result-text');
     const scanQrButton = document.getElementById('scan-qr-btn');
-    const clearResultButton = document.getElementById('clear-result-btn');
     const sendButton = document.getElementById('send-data-btn');
 
     let isScanning = false;
@@ -131,9 +120,9 @@
           showMessage("カメラの準備ができました。", 'success');
         })
         .catch(function(error) {
-          // エラーが発生した場合、カメラにアクセスできなかったことをユーザーに知らせ、
-          // カメラへのアクセスを許可するように促します。
-          // また、スキャンボタンを無効化し、エラーメッセージをコンソールにも出力します。
+          // エラーが発生した場合、カメラにアクセスできなかったことをユーザーに知らせる
+          // カメラへのアクセスを許可するように促す
+          // また、スキャンボタンを無効化し、エラーメッセージをコンソールにも出力する
           showMessage("カメラへのアクセスが拒否されました。ブラウザのポップアップで「許可」を選択してください。", 'error');
           scanQrButton.disabled = true;
           scanQrButton.style.opacity = '0.5';
@@ -217,11 +206,10 @@
         
         if (code) {
           // QRコードが見つかった場合の処理
-          // 連続読み取りを可能にするため、ここではカメラを停止せず、スキャンフラグもtrueのままにします
+          // 連続読み取りのため、スキャンは停止しません
           qrDataToSend = code.data;
           resultBox.classList.remove('hidden');
           sendButton.classList.remove('hidden');
-          clearResultButton.classList.remove('hidden');
           resultText.textContent = `QRコードを読み取りました: ${code.data}`;
           showMessage("QRコードを読み取りました。次のスキャンに進めます。", 'success');
         }
@@ -289,33 +277,14 @@
     sendButton.addEventListener('click', () => {
       sendData(qrDataToSend);
     });
-
-    // 読み取り結果クリアボタンにイベントリスナーを追加
-    clearResultButton.addEventListener('click', () => {
-      resultBox.classList.add('hidden');
-      resultText.textContent = '';
-      sendButton.classList.add('hidden');
-      clearResultButton.classList.add('hidden');
-      qrDataToSend = null;
-      showMessage("結果をクリアしました。新しいQRコードをスキャンしてください。", 'success');
-      // カメラが停止している場合は再開
-      if (!videoStream) {
-        startCameraPreview();
-      }
-      isScanning = true;
-      requestAnimationFrame(tick);
-    });
     
     // スキャン開始ボタンにイベントリスナーを追加
     scanQrButton.addEventListener('click', () => {
+      // isScanningフラグをトグルして、スキャン状態を切り替えます
+      isScanning = !isScanning;
       if (isScanning) {
-        // スキャン停止
-        isScanning = false;
-        setButtonLoading(scanQrButton, false);
-        scanQrButton.textContent = 'スキャン開始';
-        showMessage("スキャンを停止しました。", 'success');
-      } else {
         // スキャン開始
+        // カメラが停止している場合は再開
         if (!videoStream) {
           startCameraPreview();
         }
@@ -323,13 +292,14 @@
         resultBox.classList.add('hidden');
         resultText.textContent = '';
         sendButton.classList.add('hidden');
-        clearResultButton.classList.add('hidden');
         qrDataToSend = null;
-
-        isScanning = true;
-        requestAnimationFrame(tick);
         scanQrButton.textContent = 'スキャン停止';
         showMessage("QRコードをカメラにかざしてください。", 'success');
+        requestAnimationFrame(tick);
+      } else {
+        // スキャン停止
+        scanQrButton.textContent = 'スキャン開始';
+        showMessage("スキャンを停止しました。", 'success');
       }
     });
   </script>
