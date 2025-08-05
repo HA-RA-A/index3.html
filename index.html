@@ -256,10 +256,19 @@
           body: JSON.stringify(dataToSend)
         });
         
-        showMessage("データをスプレッドシートへ送信しました！", 'success');
+        // レスポンスが正常かどうかを確認
+        if (response.ok) {
+            showMessage("データをスプレッドシートへ送信しました！", 'success');
+        } else {
+            // no-corsモードではレスポンスステータスを確認できないため、
+            // サーバー側のログでエラー原因を特定する必要があります。
+            // ここでは一般的なエラーメッセージを表示します。
+            showMessage("データの送信中にエラーが発生しました。Google Apps Scriptのログを確認してください。", 'error');
+        }
         
       } catch (error) {
-        showMessage("データの送信中にエラーが発生しました。", 'error');
+        // JSONパースエラーなど、クライアント側でのエラー
+        showMessage(`データの送信中にエラーが発生しました: ${error.message}`, 'error');
         console.error("送信エラー:", error);
       } finally {
         setButtonLoading(sendButton, false);
