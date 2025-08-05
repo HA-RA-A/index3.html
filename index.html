@@ -294,6 +294,11 @@
     
     // スキャン開始ボタンにイベントリスナーを追加
     scanQrButton.addEventListener('click', () => {
+      // 既にスキャン中であれば、一度停止してから再開
+      if (isScanning) {
+        stopCamera();
+      }
+      
       // 以前の読み取り結果を非表示にする
       resultBox.classList.add('hidden');
       resultText.textContent = '';
