@@ -299,7 +299,12 @@
       } else {
         // スキャン停止
         scanQrButton.textContent = 'スキャン開始';
-        showMessage("スキャンを停止しました。", 'success');
+        // 読み取り結果をリセット
+        resultBox.classList.add('hidden');
+        resultText.textContent = '';
+        sendButton.classList.add('hidden');
+        qrDataToSend = null;
+        showMessage("スキャンを停止しました。読み取り結果をリセットしました。", 'success');
       }
     });
   </script>
