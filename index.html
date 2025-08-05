@@ -86,7 +86,7 @@
 
   <script>
     // Google Apps ScriptのURL
-    const SPREADSHEET_URL = 'https://script.google.com/macros/s/AKfycbybW5MugA8GGWpNgYiz8JpiWjzXX9uGFmsAbhePCdnOMOeEK-T7cqgBPj5XfH2MdHGV/exec';
+    const SPREADSHEET_URL = 'https://script.google.com/macros/s/AKfycbzR6vX-7wQ_I5hEhY8sJ3a5vnUAldv1-RcsvnQ_KnT0RXOjUiftZ3QjyxogHwy-YQlgFA/exec';
     
     // UI要素の参照を取得
     const video = document.getElementById('video');
@@ -256,15 +256,9 @@
           body: JSON.stringify(dataToSend)
         });
         
-        // レスポンスが正常かどうかを確認
-        if (response.ok) {
-            showMessage("データをスプレッドシートへ送信しました！", 'success');
-        } else {
-            // no-corsモードではレスポンスステータスを確認できないため、
-            // サーバー側のログでエラー原因を特定する必要があります。
-            // ここでは一般的なエラーメッセージを表示します。
-            showMessage("データの送信中にエラーが発生しました。Google Apps Scriptのログを確認してください。", 'error');
-        }
+        // no-corsモードではレスポンスステータスを確認できないため、
+        // サーバー側のログでエラー原因を特定する必要があります。
+        showMessage("データの送信リクエストを送信しました。スプレッドシートへの保存状況はGoogle Apps Scriptの実行ログで確認してください。", 'success');
         
       } catch (error) {
         // JSONパースエラーなど、クライアント側でのエラー
