@@ -195,9 +195,12 @@
      * QRコードをスキャンし、結果を処理する関数
      */
     function tick() {
+      // スキャン中でなければ何もしない
       if (!isScanning) {
         return;
       }
+
+      // カメラの映像データが利用可能かチェック
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         const canvasElement = document.createElement('canvas');
         const canvas = canvasElement.getContext('2d');
@@ -209,8 +212,10 @@
           inversionAttempts: "dontInvert",
         });
         
+        // QRコードが検出されたかチェック
         if (code) {
           // QRコードが見つかった場合の処理
+          // ここで初めてスキャンを停止し、結果を表示
           stopCamera();
           resultBox.classList.remove('hidden');
           sendButton.classList.remove('hidden');
@@ -222,9 +227,10 @@
             clearTimeout(scanTimeoutId);
             scanTimeoutId = null;
           }
-          return;
+          return; // 読み取り成功したので、tickの再帰呼び出しを停止
         }
       }
+      // QRコードが見つからない場合、次のフレームで再度スキャンを試みる
       requestAnimationFrame(tick);
     }
 
