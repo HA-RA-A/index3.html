@@ -169,7 +169,8 @@
         })
         .catch(function(error) {
           setButtonLoading(scanQrButton, false);
-          showMessage("カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。", 'error');
+          // ユーザーにカメラ許可を求めるメッセージをより具体的に修正
+          showMessage("カメラへのアクセスが拒否されました。ブラウザのポップアップで「許可」を選択し、再度「スキャン開始」ボタンを押してください。", 'error');
           console.error("カメラアクセスエラー:", error);
         });
     }
@@ -234,8 +235,9 @@
 
       try {
         // QRコードの文字列をスペースで分割し、キーと値を抽出
+        // データの形式を「ボタン名 原 緯度 11111 経度 11111」として処理します
         const parts = qrData.split(/\s+/);
-        if (parts.length < 4 || parts[0] !== "ボタン名" || parts[2] !== "緯度" || parts[4] !== "経度") {
+        if (parts.length !== 6 || parts[0] !== "ボタン名" || parts[2] !== "緯度" || parts[4] !== "経度") {
           throw new Error("QRコードのデータ形式が不正です。期待される形式: 'ボタン名 <値> 緯度 <値> 経度 <値>'");
         }
         
@@ -262,7 +264,7 @@
         showMessage("データの送信リクエストを送信しました。スプレッドシートへの保存状況はGoogle Apps Scriptの実行ログで確認してください。", 'success');
         
       } catch (error) {
-        // JSONパースエラーなど、クライアント側でのエラー
+        // 文字列の解析エラーなど、クライアント側でのエラー
         showMessage(`データの送信中にエラーが発生しました: ${error.message}`, 'error');
         console.error("送信エラー:", error);
       } finally {
