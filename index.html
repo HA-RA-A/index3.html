@@ -220,8 +220,8 @@
 
     /**
      * QRコードのデータを解析し、スプレッドシートに送信します。
-     * QRコードのデータは、JSON形式を想定しています。
-     * 例: {"ボタン名": "原", "緯度": 11111, "経度": 11111}
+     * QRコードのデータは、プレーンテキスト形式を想定しています。
+     * 例: "ボタン名 原 緯度 11111 経度 11111"
      * @param {string} qrData - 読み取ったQRコードの文字列
      */
     async function sendData(qrData) {
@@ -233,16 +233,17 @@
       setButtonLoading(sendButton, true);
 
       try {
-        const parsedData = JSON.parse(qrData);
-        if (!parsedData.ボタン名 || !parsedData.緯度 || !parsedData.経度) {
-          throw new Error("QRコードのデータ形式が不正です。");
+        // QRコードの文字列をスペースで分割し、キーと値を抽出
+        const parts = qrData.split(/\s+/);
+        if (parts.length < 4 || parts[0] !== "ボタン名" || parts[2] !== "緯度" || parts[4] !== "経度") {
+          throw new Error("QRコードのデータ形式が不正です。期待される形式: 'ボタン名 <値> 緯度 <値> 経度 <値>'");
         }
         
-        // タイムスタンプを追加
+        // 抽出したデータでオブジェクトを作成
         const dataToSend = [{
-          ボタン名: parsedData.ボタン名,
-          緯度: parsedData.緯度,
-          経度: parsedData.経度,
+          ボタン名: parts[1],
+          緯度: parts[3],
+          経度: parts[5],
           時間: new Date().toISOString()
         }];
 
