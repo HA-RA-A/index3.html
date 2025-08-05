@@ -248,6 +248,9 @@
           経度: parts[5],
           時間: new Date().toISOString()
         }];
+        
+        // 送信データをコンソールにログ出力して確認できるようにします
+        console.log("送信データ:", dataToSend);
 
         // Fetch APIを使用してデータをPOSTリクエストで送信
         const response = await fetch(SPREADSHEET_URL, {
