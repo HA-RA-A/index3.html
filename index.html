@@ -204,14 +204,20 @@
           inversionAttempts: "dontInvert",
         });
         
+        // 読み取れた時だけ結果を表示し、スキャン停止時も結果をリセットする
         if (code) {
           // QRコードが見つかった場合の処理
-          // 連続読み取りのため、スキャンは停止しません
           qrDataToSend = code.data;
           resultBox.classList.remove('hidden');
           sendButton.classList.remove('hidden');
           resultText.textContent = `QRコードを読み取りました: ${code.data}`;
           showMessage("QRコードを読み取りました。次のスキャンに進めます。", 'success');
+        } else {
+          // 読み取れていない場合は結果を非表示にする
+          resultBox.classList.add('hidden');
+          sendButton.classList.add('hidden');
+          qrDataToSend = null;
+          resultText.textContent = '';
         }
       }
       requestAnimationFrame(tick);
