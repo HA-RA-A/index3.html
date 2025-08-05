@@ -64,7 +64,7 @@
     </div>
 
     <!-- 読み取り結果表示エリア -->
-    <div id="result-box" class="p-4 bg-gray-200 rounded-lg hidden text-left mb-8">
+    <div id="result-box" class="p-4 bg-gray-200 rounded-lg hidden text-left mb-4">
       <h3 class="font-bold text-lg mb-2">読み取り結果:</h3>
       <p id="result-text" class="text-gray-700"></p>
     </div>
@@ -74,6 +74,13 @@
       id="scan-qr-btn" 
       class="w-full bg-blue-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-blue-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-blue-300">
       スキャン開始
+    </button>
+    
+    <!-- スプレッドシートへ送信ボタン -->
+    <button 
+      id="send-data-btn" 
+      class="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-lg shadow-xl hover:bg-green-600 transition duration-300 transform hover:scale-105 active:scale-100 focus:outline-none focus:ring-4 focus:ring-green-300 hidden">
+      スプレッドシートへ送信
     </button>
   </div>
 
@@ -87,8 +94,11 @@
     const resultBox = document.getElementById('result-box');
     const resultText = document.getElementById('result-text');
     const scanQrButton = document.getElementById('scan-qr-btn');
+    const sendButton = document.getElementById('send-data-btn');
 
     let isScanning = false;
+    let qrDataToSend = null;
+    let videoStream = null;
 
     /**
      * カスタムメッセージボックスにメッセージを表示します。
@@ -125,19 +135,64 @@
       if (isLoading) {
         button.disabled = true;
         button.style.opacity = '0.7';
-        button.textContent = 'スキャン中...';
+        if (button.id === 'scan-qr-btn') {
+          button.textContent = 'スキャン中...';
+        } else if (button.id === 'send-data-btn') {
+          button.textContent = '送信中...';
+        }
       } else {
         button.disabled = false;
         button.style.opacity = '1';
-        button.textContent = 'スキャン開始';
+        if (button.id === 'scan-qr-btn') {
+          button.textContent = 'スキャン開始';
+        } else if (button.id === 'send-data-btn') {
+          button.textContent = 'スプレッドシートへ送信';
+        }
       }
+    }
+
+    /**
+     * カメラを起動する
+     */
+    function startCamera() {
+      // カメラを起動する
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(function(stream) {
+          videoStream = stream;
+          video.srcObject = videoStream;
+          video.setAttribute("playsinline", true);
+          video.play();
+          isScanning = true;
+          requestAnimationFrame(tick);
+          setButtonLoading(scanQrButton, true);
+          showMessage("カメラが起動しました。QRコードをかざしてください。", 'success');
+        })
+        .catch(function(error) {
+          setButtonLoading(scanQrButton, false);
+          showMessage("カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。", 'error');
+          console.error("カメラアクセスエラー:", error);
+        });
+    }
+
+    /**
+     * カメラを停止する
+     */
+    function stopCamera() {
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+        isScanning = false;
+        setButtonLoading(scanQrButton, false);
     }
 
     /**
      * QRコードをスキャンし、結果を処理する関数
      */
     function tick() {
-      if (!isScanning) return;
+      if (!isScanning) {
+        return;
+      }
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         const canvasElement = document.createElement('canvas');
         const canvas = canvasElement.getContext('2d');
@@ -151,11 +206,12 @@
         
         if (code) {
           // QRコードが見つかった場合の処理
-          isScanning = false;
-          video.pause();
+          stopCamera();
           resultBox.classList.remove('hidden');
+          sendButton.classList.remove('hidden');
           resultText.textContent = `QRコードを読み取りました: ${code.data}`;
-          processQrData(code.data);
+          qrDataToSend = code.data;
+          showMessage("QRコードを読み取りました。スプレッドシートへ送信してください。", 'success');
           return;
         }
       }
@@ -168,7 +224,14 @@
      * 例: {"locationName": "場所A", "latitude": 35.681236, "longitude": 139.767125}
      * @param {string} qrData - 読み取ったQRコードの文字列
      */
-    async function processQrData(qrData) {
+    async function sendData(qrData) {
+      if (!qrData) {
+        showMessage("送信するデータがありません。", 'error');
+        return;
+      }
+
+      setButtonLoading(sendButton, true);
+
       try {
         const parsedData = JSON.parse(qrData);
         if (!parsedData.locationName || !parsedData.latitude || !parsedData.longitude) {
@@ -199,31 +262,23 @@
         showMessage("データの送信中にエラーが発生しました。", 'error');
         console.error("送信エラー:", error);
       } finally {
-        setButtonLoading(scanQrButton, false);
+        setButtonLoading(sendButton, false);
       }
     }
     
-    // QRコードスキャン開始ボタンにイベントリスナーを追加
+    // スプレッドシートへ送信ボタンにイベントリスナーを追加
+    sendButton.addEventListener('click', () => {
+      sendData(qrDataToSend);
+    });
+    
+    // スキャン開始ボタンにイベントリスナーを追加
     scanQrButton.addEventListener('click', () => {
       // 以前の読み取り結果を非表示にする
       resultBox.classList.add('hidden');
       resultText.textContent = '';
-      setButtonLoading(scanQrButton, true);
-
-      // カメラを起動する
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(function(stream) {
-          video.srcObject = stream;
-          video.setAttribute("playsinline", true);
-          video.play();
-          isScanning = true;
-          requestAnimationFrame(tick);
-        })
-        .catch(function(error) {
-          setButtonLoading(scanQrButton, false);
-          showMessage("カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。", 'error');
-          console.error("カメラアクセスエラー:", error);
-        });
+      sendButton.classList.add('hidden');
+      qrDataToSend = null;
+      startCamera();
     });
   </script>
 </body>
