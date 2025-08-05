@@ -99,6 +99,49 @@
     let isScanning = false;
     let qrDataToSend = null;
     let videoStream = null;
+    let scanTimeoutId = null; // スキャンタイムアウト用のIDを追加
+
+    // ページロード時にカメラを起動
+    window.addEventListener('load', () => {
+      startCameraPreview();
+    });
+
+    /**
+     * カメラの映像をプレビューとして表示します。
+     * QRコードの読み取りは行いません。
+     */
+    function startCameraPreview() {
+      // カメラを起動する
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(function(stream) {
+          videoStream = stream;
+          video.srcObject = videoStream;
+          video.setAttribute("playsinline", true);
+          video.play();
+          showMessage("QRコードをカメラの中央に合わせてください。", 'success');
+        })
+        .catch(function(error) {
+          showMessage("カメラへのアクセスが拒否されました。ブラウザのポップアップで「許可」を選択してください。", 'error');
+          console.error("カメラアクセスエラー:", error);
+        });
+    }
+
+    /**
+     * カメラを停止する
+     */
+    function stopCamera() {
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+        isScanning = false;
+        setButtonLoading(scanQrButton, false);
+        // タイムアウトをクリア
+        if (scanTimeoutId) {
+          clearTimeout(scanTimeoutId);
+          scanTimeoutId = null;
+        }
+    }
 
     /**
      * カスタムメッセージボックスにメッセージを表示します。
@@ -152,42 +195,6 @@
     }
 
     /**
-     * カメラを起動する
-     */
-    function startCamera() {
-      // カメラを起動する
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(function(stream) {
-          videoStream = stream;
-          video.srcObject = videoStream;
-          video.setAttribute("playsinline", true);
-          video.play();
-          isScanning = true;
-          requestAnimationFrame(tick);
-          setButtonLoading(scanQrButton, true);
-          showMessage("カメラが起動しました。QRコードをかざしてください。", 'success');
-        })
-        .catch(function(error) {
-          setButtonLoading(scanQrButton, false);
-          // ユーザーにカメラ許可を求めるメッセージをより具体的に修正
-          showMessage("カメラへのアクセスが拒否されました。ブラウザのポップアップで「許可」を選択し、再度「スキャン開始」ボタンを押してください。", 'error');
-          console.error("カメラアクセスエラー:", error);
-        });
-    }
-
-    /**
-     * カメラを停止する
-     */
-    function stopCamera() {
-        if (videoStream) {
-            videoStream.getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-        }
-        isScanning = false;
-        setButtonLoading(scanQrButton, false);
-    }
-
-    /**
      * QRコードをスキャンし、結果を処理する関数
      */
     function tick() {
@@ -213,6 +220,11 @@
           resultText.textContent = `QRコードを読み取りました: ${code.data}`;
           qrDataToSend = code.data;
           showMessage("QRコードを読み取りました。スプレッドシートへ送信してください。", 'success');
+          // タイムアウトをクリア
+          if (scanTimeoutId) {
+            clearTimeout(scanTimeoutId);
+            scanTimeoutId = null;
+          }
           return;
         }
       }
@@ -287,7 +299,18 @@
       resultText.textContent = '';
       sendButton.classList.add('hidden');
       qrDataToSend = null;
-      startCamera();
+      isScanning = true;
+      requestAnimationFrame(tick);
+      setButtonLoading(scanQrButton, true);
+      showMessage("QRコードをカメラにかざしてください。QRコードを読み取り次第、スキャンを停止します。", 'success');
+      
+      // 15秒後にタイムアウトするよう設定
+      scanTimeoutId = setTimeout(() => {
+        if (isScanning) {
+          stopCamera();
+          showMessage("QRコードが見つかりませんでした。再度「スキャン開始」ボタンを押してお試しください。", 'error');
+        }
+      }, 15000);
     });
   </script>
 </body>
